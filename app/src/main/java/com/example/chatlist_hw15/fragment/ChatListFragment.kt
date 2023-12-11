@@ -1,6 +1,8 @@
 package com.example.chatlist_hw15.fragment
 
 import android.text.Editable
+import android.view.View
+import android.widget.Toast
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -9,12 +11,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.example.chatlist_hw15.adapter.ChatItemAdapter
 import com.example.chatlist_hw15.base.BaseFragment
 import com.example.chatlist_hw15.databinding.FragmentChatListBinding
-import com.example.chatlist_hw15.json_reader.getJsonDataFromAsset
-import com.example.chatlist_hw15.model.Chat
-import com.example.chatlist_hw15.network.ChatApi
 import com.example.chatlist_hw15.view_model.ChatViewModel
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
 
 class ChatListFragment : BaseFragment<FragmentChatListBinding>(FragmentChatListBinding::inflate) {
@@ -24,22 +21,11 @@ class ChatListFragment : BaseFragment<FragmentChatListBinding>(FragmentChatListB
     private lateinit var adapter: ChatItemAdapter
 
     override fun setData() {
-        lifecycleScope.launch {
-            val json = ChatApi.retrofitService.getData()
-            chatViewModel.setInitialList(chatViewModel.getChatData(json))
-        }
+        chatViewModel.setInitialList()
     }
 
-//    private fun getData(): List<Chat> {
-//        val json = getJsonDataFromAsset(requireContext(), "chats.json")
-//
-//        return Gson().fromJson(json, object : TypeToken<List<Chat>>() {}.type)
-//    }
-
     override fun setRecycler() {
-        adapter = ChatItemAdapter().apply {
-            submitList(chatViewModel.getList())
-        }
+        adapter = ChatItemAdapter()
         binding.rvChatList.adapter = adapter
     }
 
@@ -52,8 +38,25 @@ class ChatListFragment : BaseFragment<FragmentChatListBinding>(FragmentChatListB
     override fun observe() {
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                chatViewModel.chatFlow.collect {
-                    adapter.submitList(it)
+                chatViewModel.chatResult.collect { result ->
+                    when (result) {
+                        is ChatViewModel.ChatResult.Success -> {
+                            binding.progressBar.visibility = View.VISIBLE
+                            adapter.submitList(result.chats)
+                        }
+
+                        is ChatViewModel.ChatResult.Error -> {
+                            binding.progressBar.visibility = View.GONE
+                            Toast.makeText(
+                                requireContext(),
+                                result.errorMessage,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+
+                        else -> {
+                        }
+                    }
                 }
             }
         }

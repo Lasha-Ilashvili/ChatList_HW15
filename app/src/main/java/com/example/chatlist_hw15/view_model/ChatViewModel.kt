@@ -4,33 +4,51 @@ import android.text.Editable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chatlist_hw15.model.Chat
-import com.example.chatlist_hw15.network.ChatApi
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.example.chatlist_hw15.network.ChatNetwork
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okio.IOException
 
 class ChatViewModel : ViewModel() {
 
-    private val _chatFlow = MutableStateFlow(emptyList<Chat>())
-    val chatFlow get() = _chatFlow.asStateFlow()
+    private val _chatResult = MutableStateFlow<ChatResult?>(null)
+    val chatResult get() = _chatResult.asStateFlow()
 
-    fun setInitialList(list: List<Chat>) {
-        _chatFlow.value = list
+    fun setInitialList() {
+        viewModelScope.launch {
+            try {
+                val response = ChatNetwork.chatService().getChats()
+
+                if (response.isSuccessful) {
+                    _chatResult.value = ChatResult.Success(response.body()!!)
+                } else {
+                    _chatResult.value = ChatResult.Error("Failed to fetch chats")
+                }
+
+            } catch (_: IOException) {
+                _chatResult.value = ChatResult.Error("Network error")
+            }
+        }
     }
-
-    fun getChatData(json: String): List<Chat> {
-        return Gson().fromJson(json, object : TypeToken<List<Chat>>() {}.type)
-    }
-
-    fun getList() = _chatFlow.value
 
     fun search(owner: Editable) {
         viewModelScope.launch {
-            _chatFlow.value = _chatFlow.value.filter {
-                it.owner.contains(owner, ignoreCase = true)
+            val response = ChatNetwork.chatService().getChats()
+
+            if (response.isSuccessful) {
+                val filteredChats = response.body()?.filter {
+                    it.owner.contains(owner, ignoreCase = true)
+                } ?: emptyList()
+                _chatResult.value = ChatResult.Success(filteredChats)
+            } else {
+                _chatResult.value = ChatResult.Error("Failed to fetch chats")
             }
         }
+    }
+
+    sealed class ChatResult {
+        data class Success(val chats: List<Chat>) : ChatResult()
+        data class Error(val errorMessage: String) : ChatResult()
     }
 }
