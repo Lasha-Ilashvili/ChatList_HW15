@@ -23,11 +23,11 @@ class ChatViewModel : ViewModel() {
                 if (response.isSuccessful) {
                     _chatResult.value = ChatResult.Success(response.body()!!)
                 } else {
-                    _chatResult.value = ChatResult.Error("Failed to fetch chats")
+                    _chatResult.value = ChatResult.Error("Failed to fetch chats ${response.errorBody()}")
                 }
 
-            } catch (_: IOException) {
-                _chatResult.value = ChatResult.Error("Network error")
+            } catch (e: IOException) {
+                _chatResult.value = ChatResult.Error("Network error: ${e.message}")
             }
         }
     }
